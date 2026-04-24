@@ -3,6 +3,7 @@ export type PostulacionEstado =
   | 'ENVIADO_PARA_EVALUACION'
   | 'OBSERVADO'
   | 'ADJUDICADO'
+  | 'EN_EVALUACION'
   | 'CONVENIO_FORMALIZADO'
 
 export type TipoParticipacion = 'INDIVIDUAL' | 'ASOCIADO'
@@ -15,8 +16,10 @@ export type DocumentoTipo =
   | 'VALIDACION_GRUPO_INVESTIGACION'
   | 'FICHA_ASOCIACION'
   | 'DOCUMENTO_ADJUDICACION'
+  | 'INFORME_TECNICO_ACTUALIZACION_ADJ'
   | 'CONVENIO_ASOCIACION'
   | 'DOCUMENTO_LEGAL'
+  | 'SUSTENTO_ASOCIACION_COMPLEMENTARIO'
 
 export type DocumentoAdjunto = {
   id: string
@@ -61,6 +64,8 @@ export type Postulacion = {
   fondo: string
   concurso: string
   fechaCierreConcursoIso?: string
+  /** Límite para editar la ficha de adjudicación (inclusive, comparación por fecha calendario). */
+  fechaLimiteActualizacionAdjudicacionIso?: string
   fechaRegistroIso: string
   estado: PostulacionEstado
   tipoParticipacion: TipoParticipacion
@@ -74,6 +79,14 @@ export type Postulacion = {
   // Datos
   duracion?: string
   objetivo: string
+  /** Criterios de evaluación (texto libre, flujo adjudicación). */
+  criteriosEvaluacion?: string
+  /** Beneficios esperados (máx. 76 en reglas de negocio). */
+  beneficiosProyecto?: string
+  /** Identificadores de objetivos estratégicos institucionales seleccionados. */
+  objetivosEstrategicosIds?: string[]
+  /** Texto de participación / vínculo con la entidad asociada (ficha asociación). */
+  descripcionParticipacionAsociada?: string
   resumen: string
   coordinadorGeneralNombre?: string
   coordinadorGeneralEntidad?: string
@@ -87,6 +100,9 @@ export type Postulacion = {
   contratoFirmado: boolean
   convenioFormalizado: boolean
   adjudicado: boolean
+
+  /** Tras «Guardar» en ficha de adjudicación; «FINAL» tras «Enviar ficha». */
+  fichaAdjudicacionEstado?: 'BORRADOR' | 'FINAL'
 
   versionActual: number
   historial: PostulacionVersion[]

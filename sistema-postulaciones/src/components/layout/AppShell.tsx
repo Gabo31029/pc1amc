@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Building2, LayoutList, Rows3, Trophy } from 'lucide-react'
+import { Building2, Rows3 } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { Breadcrumbs } from './Breadcrumbs'
 import { Button } from '../ui/Button'
@@ -78,16 +78,7 @@ export function AppShell() {
         <aside className="h-fit rounded-2xl border border-black/10 bg-white/55 p-3 shadow-sm backdrop-blur">
           <div className="px-3 pb-2 text-xs font-semibold text-black/50">Navegación</div>
           <div className="flex flex-col gap-1">
-            <NavItem to="/concursos" icon={<Trophy size={18} />} label="Concursos" />
-            <NavItem
-              to="/postulaciones/seguimiento"
-              icon={<LayoutList size={18} />}
-              label="Seguimiento"
-            />
-            <NavItem to="/" icon={<Rows3 size={18} />} label="Listado (demo)" />
-          </div>
-          <div className="mt-3 rounded-xl bg-black/5 p-3 text-xs text-black/60">
-            Tip: este sistema usa datos locales (localStorage) para que funcione sin backend.
+            <NavItem to="/" icon={<Rows3 size={18} />} label="Fichas de la Facultad" />
           </div>
         </aside>
 

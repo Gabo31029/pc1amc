@@ -6,6 +6,10 @@ const PENDING_CONCURSO_KEY = 'amc.auth.pendingConcurso.v1'
 export type AuthSession = {
   email: string
   loggedInAtIso: string
+  /** Facultad del representante (alcance del listado de fichas). */
+  facultad: string
+  /** Permiso para editar fichas de postulación. */
+  puedeEditarFichas: boolean
 }
 
 export type PendingConcurso = {
@@ -15,22 +19,37 @@ export type PendingConcurso = {
   fechaLimiteIso: string
 }
 
+export type LoginResult =
+  | { ok: true }
+  | { ok: false; message: string }
+  | { ok: false; needsSecondFactor: true }
+
 type AuthContextValue = {
   session: AuthSession | null
   isAuthenticated: boolean
-  login: (email: string, password: string) => Promise<{ ok: true } | { ok: false; message: string }>
+  login: (email: string, password: string, secondFactor?: string) => Promise<LoginResult>
   logout: () => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+function normalizeSession(raw: unknown): AuthSession | null {
+  if (!raw || typeof raw !== 'object') return null
+  const o = raw as Record<string, unknown>
+  const email = typeof o.email === 'string' ? o.email : ''
+  if (!email) return null
+  const loggedInAtIso = typeof o.loggedInAtIso === 'string' ? o.loggedInAtIso : new Date().toISOString()
+  const e = email.toLowerCase()
+  const puedeEditarFichas = e === 'restringido@uni.edu' ? false : true
+  const facultad = typeof o.facultad === 'string' && o.facultad ? o.facultad : 'Ingeniería'
+  return { email, loggedInAtIso, facultad, puedeEditarFichas }
+}
+
 function readSession(): AuthSession | null {
   const raw = window.localStorage.getItem(AUTH_KEY)
   if (!raw) return null
   try {
-    const parsed = JSON.parse(raw) as AuthSession
-    if (!parsed?.email) return null
-    return parsed
+    return normalizeSession(JSON.parse(raw))
   } catch {
     return null
   }
@@ -73,11 +92,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return {
       session,
       isAuthenticated: !!session,
-      login: async (email: string, password: string) => {
-        // Auth simulada (hardcode)
-        const ok = email.toLowerCase() === 'admin@uni.edu' && password === '123456'
-        if (!ok) return { ok: false, message: 'Credenciales inválidas. Verifique correo y contraseña.' }
-        setSession({ email, loggedInAtIso: new Date().toISOString() })
+      login: async (email: string, password: string, secondFactor?: string) => {
+        const e = email.toLowerCase().trim()
+        const credOk =
+          (e === 'admin@uni.edu' && password === '123456') || (e === 'restringido@uni.edu' && password === '123456')
+        if (!credOk) {
+          return { ok: false, message: 'Credenciales inválidas. Verifique e intente nuevamente.' }
+        }
+        if (secondFactor === undefined) {
+          return { ok: false, needsSecondFactor: true }
+        }
+        if (secondFactor.trim() === '') {
+          return { ok: false, message: 'Ingrese el código de doble autenticación.' }
+        }
+        if (secondFactor.trim() !== '000000') {
+          return { ok: false, message: 'Código de doble autenticación incorrecto.' }
+        }
+        const puedeEditarFichas = e !== 'restringido@uni.edu'
+        setSession({
+          email,
+          loggedInAtIso: new Date().toISOString(),
+          facultad: 'Ingeniería',
+          puedeEditarFichas,
+        })
         return { ok: true }
       },
       logout: () => setSession(null),
@@ -92,4 +129,3 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth debe usarse dentro de AuthProvider')
   return ctx
 }
-

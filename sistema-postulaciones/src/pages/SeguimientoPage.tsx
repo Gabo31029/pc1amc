@@ -7,7 +7,8 @@ import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { useToast } from '../components/ui/Toast'
 import { listPostulaciones } from '../app/storage'
-import { type Postulacion, type PostulacionEstado } from '../app/types'
+import { etiquetaEstadoPostulacion, uiEstadoPostulacion } from '../app/postulacionPresentacion'
+import { type Postulacion } from '../app/types'
 
 type DocEstado = 'COMPLETO' | 'INCOMPLETO' | 'NO_PRESENTADO' | 'NO_DISPONIBLE' | 'NO_APLICA'
 
@@ -17,23 +18,6 @@ function badgeForDocEstado(estado: DocEstado) {
   if (estado === 'NO_PRESENTADO') return { label: 'No presentado', variant: 'danger' as const }
   if (estado === 'NO_DISPONIBLE') return { label: 'No disponible', variant: 'default' as const }
   return { label: 'No aplica', variant: 'default' as const }
-}
-
-function prettyEstado(estado: PostulacionEstado): { label: string; variant: 'default' | 'success' | 'warning' | 'danger' | 'info' } {
-  switch (estado) {
-    case 'BORRADOR':
-      return { label: 'Borrador', variant: 'default' }
-    case 'ENVIADO_PARA_EVALUACION':
-      return { label: 'Enviado', variant: 'info' }
-    case 'OBSERVADO':
-      return { label: 'Observado', variant: 'warning' }
-    case 'ADJUDICADO':
-      return { label: 'Adjudicado', variant: 'success' }
-    case 'CONVENIO_FORMALIZADO':
-      return { label: 'Formalizado', variant: 'default' }
-    default:
-      return { label: estado, variant: 'default' }
-  }
 }
 
 function fichaDotClass(estado: DocEstado) {
@@ -113,7 +97,7 @@ function estadoFichaAsociacion(p: Postulacion, sim: SimFlags): DocEstado {
 }
 
 function estadoFichaAdjudicacion(p: Postulacion, sim: SimFlags): DocEstado {
-  const aplica = p.adjudicado || p.estado === 'ADJUDICADO'
+  const aplica = p.adjudicado || p.estado === 'ADJUDICADO' || p.estado === 'EN_EVALUACION'
   if (!aplica) return 'NO_APLICA'
   if (sim.fichaAdjudicacionNoDisponible) return 'NO_DISPONIBLE'
   if (hasAdjunto(p, 'DOCUMENTO_ADJUDICACION')) return 'COMPLETO'
@@ -233,7 +217,7 @@ export function SeguimientoPage() {
         estadoFichaAsociacion: fa,
         estadoFichaAdjudicacion: fj,
         faltanFichasNoDisponibles: faltanFichas ? 'Sí' : 'No',
-        estado: p.estado,
+        estado: etiquetaEstadoPostulacion(p.estado),
         fechaRegistro: format(new Date(p.fechaRegistroIso), 'yyyy-MM-dd HH:mm'),
         documentacionPostulacion: estadoDocumentacionPostulacion(p),
       }
@@ -365,10 +349,11 @@ export function SeguimientoPage() {
               <Select value={estado} onChange={(e) => setEstado(e.target.value)}>
                 <option value="">Todos</option>
                 <option value="BORRADOR">Borrador</option>
-                <option value="ENVIADO_PARA_EVALUACION">Enviado</option>
+                <option value="ENVIADO_PARA_EVALUACION">Enviado a evaluación</option>
                 <option value="OBSERVADO">Observado</option>
                 <option value="ADJUDICADO">Adjudicado</option>
-                <option value="CONVENIO_FORMALIZADO">Formalizado</option>
+                <option value="EN_EVALUACION">En evaluación</option>
+                <option value="CONVENIO_FORMALIZADO">Convenio formalizado</option>
               </Select>
             </div>
             <div>
@@ -483,7 +468,7 @@ export function SeguimientoPage() {
                         const fa = estadoFichaAsociacion(p, s)
                         const fj = estadoFichaAdjudicacion(p, s)
                         const open = !!expanded[p.id]
-                        const estadoUi = prettyEstado(p.estado)
+                        const estadoUi = uiEstadoPostulacion(p.estado)
                         return (
                           <Fragment key={p.id}>
                             <tr className="border-t border-black/10 align-top hover:bg-black/2">
@@ -507,7 +492,7 @@ export function SeguimientoPage() {
                                 </Badge>
                               </td>
                               <td className="px-4 py-4">
-                                <Badge className="px-3 py-1" variant={estadoUi.variant} title={p.estado}>
+                                <Badge className="px-3 py-1" variant={estadoUi.variant} title={estadoUi.label}>
                                   {estadoUi.label}
                                 </Badge>
                               </td>
