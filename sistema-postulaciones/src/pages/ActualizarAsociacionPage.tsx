@@ -34,7 +34,7 @@ export function ActualizarAsociacionPage() {
   const [representante, setRepresentante] = useState(p?.entidadAsociada?.representante ?? '')
   const [correo, setCorreo] = useState(p?.entidadAsociada?.correo ?? '')
   const [docAsociacion, setDocAsociacion] = useState<DocumentoAdjunto | null>(() => {
-    return p?.adjuntos.find((d) => d.tipo === 'DOCUMENTO_ASOCIACION') ?? null
+    return p?.adjuntos.find((d) => d.tipo === 'FICHA_ASOCIACION') ?? null
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -67,7 +67,7 @@ export function ActualizarAsociacionPage() {
   function onAttach(files: FileList | null) {
     if (!files || files.length === 0) return
     const f = files[0]
-    setDocAsociacion(makeDoc('DOCUMENTO_ASOCIACION', f))
+    setDocAsociacion(makeDoc('FICHA_ASOCIACION', f))
     toast({ title: 'Documento adjuntado', message: f.name, variant: 'success' })
   }
 
@@ -88,7 +88,7 @@ export function ActualizarAsociacionPage() {
       tieneEntidadAsociada: true,
       tipoParticipacion: 'ASOCIADO',
       entidadAsociada: { razonSocial, ruc, representante, correo },
-      adjuntos: [...p.adjuntos.filter((d) => d.tipo !== 'DOCUMENTO_ASOCIACION'), docAsociacion!],
+      adjuntos: [...p.adjuntos.filter((d) => d.tipo !== 'FICHA_ASOCIACION'), docAsociacion!],
       versionActual: nextVersion,
       historial: [
         {
