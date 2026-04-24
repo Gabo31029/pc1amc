@@ -5,12 +5,15 @@ import { RegistrarFichaPage } from './pages/RegistrarFichaPage'
 import { SeguimientoPage } from './pages/SeguimientoPage'
 import { ActualizarAsociacionPage } from './pages/ActualizarAsociacionPage'
 import { ActualizarAdjudicacionPage } from './pages/ActualizarAdjudicacionPage'
+import { ConcursosDisponibles } from './pages/ConcursosDisponibles'
 
 export default function App() {
   return (
     <Routes>
       <Route element={<AppShell />}>
         <Route path="/" element={<HomePage />} />
+        <Route path="/concursos" element={<ConcursosDisponibles />} />
+        <Route path="/postulacion" element={<RegistrarFichaPage />} />
         <Route path="/postulaciones/nueva" element={<RegistrarFichaPage />} />
         <Route path="/postulaciones/seguimiento" element={<SeguimientoPage />} />
         <Route

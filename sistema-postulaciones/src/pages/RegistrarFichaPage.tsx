@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { FieldError, Input, Label, Select, Textarea } from '../components/ui/Field'
@@ -9,30 +10,51 @@ import { Badge } from '../components/ui/Badge'
 import { useToast } from '../components/ui/Toast'
 import { createPostulacion, transitionEstado } from '../app/storage'
 import { type DocumentoAdjunto, type DocumentoTipo, type Postulacion } from '../app/types'
+import { type ConcursoSeleccionado } from './ConcursosDisponibles'
+
+function businessDaysUntil(from: Date, to: Date) {
+  const start = new Date(from)
+  start.setHours(0, 0, 0, 0)
+  const end = new Date(to)
+  end.setHours(0, 0, 0, 0)
+  if (Number.isNaN(end.getTime())) return null
+  if (end <= start) return 0
+
+  let days = 0
+  const cur = new Date(start)
+  while (cur < end) {
+    cur.setDate(cur.getDate() + 1)
+    const dow = cur.getDay() // 0 dom, 6 sáb
+    if (dow !== 0 && dow !== 6) days += 1
+  }
+  return days
+}
 
 const schema = z.object({
-  proyectoNombre: z.string().min(3, 'Ingrese el nombre del proyecto'),
+  proyectoNombre: z.string().min(3, 'Ingrese el título del proyecto'),
   facultad: z.string().min(2, 'Seleccione una facultad'),
   fondo: z.string().min(2, 'Ingrese el fondo concursable'),
   concurso: z.string().min(2, 'Ingrese el concurso'),
   tipoParticipacion: z.enum(['INDIVIDUAL', 'ASOCIADO']),
+  fechaCierreConcursoIso: z.string().min(10, 'Ingrese la fecha de cierre del concurso'),
+  duracion: z.string().min(1, 'Ingrese la duración del proyecto'),
   objetivo: z.string().min(10, 'Ingrese un objetivo más detallado'),
-  resumen: z.string().min(10, 'Ingrese un resumen más detallado'),
+  coordinadorGeneralNombre: z.string().min(5, 'Ingrese el nombre del coordinador general'),
+  coordinadorGeneralEntidad: z.string().min(2, 'Ingrese la entidad del coordinador general'),
+  coordinadorUniNombre: z.string().min(5, 'Ingrese el nombre del coordinador por parte de la uni'),
+  confirmaVersionFinal: z.boolean(),
   incluyeInfraestructura: z.boolean(),
   incluyeIDiTT: z.boolean(),
-  tieneEntidadAsociada: z.boolean(),
-  // entidad asociada (condicional)
-  entidadRazonSocial: z.string().optional(),
-  entidadRuc: z.string().optional(),
-  entidadRepresentante: z.string().optional(),
-  entidadCorreo: z.string().email('Correo inválido').optional().or(z.literal('')),
-  // financiamiento
-  montoSolicitado: z
-    .preprocess((v) => Number(v), z.number().min(0))
-    .default(0),
-  cofinanciamiento: z
-    .preprocess((v) => Number(v), z.number().min(0))
-    .default(0),
+  entidadAcompananteNombre: z.string().optional(),
+})
+.superRefine((values, ctx) => {
+  if (values.tipoParticipacion === 'ASOCIADO' && !values.entidadAcompananteNombre?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['entidadAcompananteNombre'],
+      message: 'Ingrese el nombre de la entidad acompañante',
+    })
+  }
 })
 
 type FormValues = z.infer<typeof schema>
@@ -56,6 +78,10 @@ const facultades = ['Ingeniería', 'Economía', 'Arquitectura', 'Ciencias', 'Der
 
 export function RegistrarFichaPage() {
   const { toast } = useToast()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const concursoSeleccionado = (location.state as { concursoSeleccionado?: ConcursoSeleccionado } | null)
+    ?.concursoSeleccionado
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema) as never,
@@ -63,20 +89,55 @@ export function RegistrarFichaPage() {
       tipoParticipacion: 'INDIVIDUAL',
       incluyeInfraestructura: false,
       incluyeIDiTT: false,
-      tieneEntidadAsociada: false,
-      montoSolicitado: 0,
-      cofinanciamiento: 0,
+      confirmaVersionFinal: false,
     },
     mode: 'onBlur',
   })
 
+  useEffect(() => {
+    if (!concursoSeleccionado) {
+      toast({
+        title: 'Seleccione un concurso',
+        message: 'Para postular, primero elija un concurso desde la lista de concursos disponibles.',
+        variant: 'danger',
+      })
+      navigate('/concursos', { replace: true })
+      return
+    }
+
+    form.reset(
+      {
+        ...form.getValues(),
+        fondo: concursoSeleccionado.fondo,
+        concurso: concursoSeleccionado.concurso,
+        fechaCierreConcursoIso: concursoSeleccionado.fechaLimiteIso,
+      },
+      { keepDefaultValues: true },
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [concursoSeleccionado?.id])
+
   const w = form.watch()
-  const total = useMemo(() => (w.montoSolicitado ?? 0) + (w.cofinanciamiento ?? 0), [w])
   const [currentDocs, setCurrentDocs] = useState<DocumentoAdjunto[]>([])
+
+  const hasEntidadAsociada = w.tipoParticipacion === 'ASOCIADO'
+  const cierreDate = useMemo(() => {
+    const v = w.fechaCierreConcursoIso
+    if (!v) return null
+    const d = new Date(v)
+    return Number.isNaN(d.getTime()) ? null : d
+  }, [w.fechaCierreConcursoIso])
+  const businessDaysToClose = useMemo(() => {
+    if (!cierreDate) return null
+    return businessDaysUntil(new Date(), cierreDate)
+  }, [cierreDate])
+  const withinDeadline = businessDaysToClose === null ? false : businessDaysToClose >= 6
 
   const requiredDocs = useMemo(() => {
     const req: { tipo: DocumentoTipo; label: string; enabled: boolean }[] = [
-      { tipo: 'OBLIGATORIO', label: 'Documentos obligatorios (PDF)', enabled: true },
+      { tipo: 'CARTA_PRESENTACION', label: 'Carta de presentación', enabled: true },
+      { tipo: 'CARTA_COMPROMISO_FACULTAD', label: 'Carta de compromiso (Facultad proponente)', enabled: true },
+      { tipo: 'INFORME_TECNICO_POSTULACION', label: 'Informe Técnico de Postulación', enabled: true },
       {
         tipo: 'INFORME_TECNICO_GRUPO_TECNICO',
         label: 'Informe técnico del Grupo Técnico (si infraestructura/equipamiento)',
@@ -88,13 +149,13 @@ export function RegistrarFichaPage() {
         enabled: !!w.incluyeIDiTT,
       },
       {
-        tipo: 'DOCUMENTO_ASOCIACION',
-        label: 'Documento de asociación (si entidad asociada)',
-        enabled: !!w.tieneEntidadAsociada,
+        tipo: 'FICHA_ASOCIACION',
+        label: 'Ficha de asociación (si entidad asociada)',
+        enabled: hasEntidadAsociada,
       },
     ]
     return req.filter((x) => x.enabled)
-  }, [w.incluyeIDiTT, w.incluyeInfraestructura, w.tieneEntidadAsociada])
+  }, [hasEntidadAsociada, w.incluyeIDiTT, w.incluyeInfraestructura])
 
   const missingDocs = requiredDocs.filter(
     (r) => !currentDocs.some((d) => d.tipo === r.tipo),
@@ -103,11 +164,8 @@ export function RegistrarFichaPage() {
   const canSubmit =
     form.formState.isValid &&
     missingDocs.length === 0 &&
-    (!w.tieneEntidadAsociada ||
-      (!!w.entidadRazonSocial &&
-        !!w.entidadRuc &&
-        !!w.entidadRepresentante &&
-        !!w.entidadCorreo))
+    !!w.confirmaVersionFinal &&
+    withinDeadline
 
   function onAttach(tipo: DocumentoTipo, files: FileList | null) {
     if (!files || files.length === 0) return
@@ -129,27 +187,25 @@ export function RegistrarFichaPage() {
       facultad: values.facultad,
       fondo: values.fondo,
       concurso: values.concurso,
+      fechaCierreConcursoIso: values.fechaCierreConcursoIso,
       estado: 'BORRADOR',
       tipoParticipacion: values.tipoParticipacion,
-      tieneEntidadAsociada: values.tieneEntidadAsociada,
+      tieneEntidadAsociada: values.tipoParticipacion === 'ASOCIADO',
       incluyeInfraestructura: values.incluyeInfraestructura,
       incluyeIDiTT: values.incluyeIDiTT,
       objetivo: values.objetivo,
-      resumen: values.resumen,
+      resumen: '',
+      duracion: values.duracion,
+      coordinadorGeneralNombre: values.coordinadorGeneralNombre,
+      coordinadorGeneralEntidad: values.coordinadorGeneralEntidad,
+      coordinadorUniNombre: values.coordinadorUniNombre,
+      confirmaVersionFinal: values.confirmaVersionFinal,
       cronograma: [],
-      financiamiento: {
-        montoSolicitado: values.montoSolicitado,
-        cofinanciamiento: values.cofinanciamiento,
-        total,
-      },
-      entidadAsociada: values.tieneEntidadAsociada
-        ? {
-            razonSocial: values.entidadRazonSocial ?? '',
-            ruc: values.entidadRuc ?? '',
-            representante: values.entidadRepresentante ?? '',
-            correo: values.entidadCorreo ?? '',
-          }
-        : undefined,
+      financiamiento: { montoSolicitado: 0, cofinanciamiento: 0, total: 0 },
+      entidadAsociada:
+        values.tipoParticipacion === 'ASOCIADO'
+          ? { razonSocial: values.entidadAcompananteNombre ?? '', ruc: '', representante: '', correo: '' }
+          : undefined,
       adjuntos: currentDocs,
       contratoFirmado: false,
       convenioFormalizado: false,
@@ -168,10 +224,22 @@ export function RegistrarFichaPage() {
   })
 
   const send = form.handleSubmit((values) => {
+    if (!withinDeadline) {
+      toast({
+        title: 'Fuera de plazo',
+        message:
+          businessDaysToClose === null
+            ? 'No se pudo validar la fecha de cierre del concurso.'
+            : `No se permite enviar si faltan menos de 6 días hábiles. Días hábiles restantes: ${businessDaysToClose}.`,
+        variant: 'danger',
+      })
+      return
+    }
+
     if (!canSubmit) {
       toast({
         title: 'No se puede enviar',
-        message: 'Complete campos obligatorios y documentos requeridos.',
+        message: 'Complete campos obligatorios, confirme versión final y adjunte documentos requeridos.',
         variant: 'danger',
       })
       return
@@ -183,27 +251,25 @@ export function RegistrarFichaPage() {
       facultad: values.facultad,
       fondo: values.fondo,
       concurso: values.concurso,
+      fechaCierreConcursoIso: values.fechaCierreConcursoIso,
       estado: 'ENVIADO_PARA_EVALUACION',
       tipoParticipacion: values.tipoParticipacion,
-      tieneEntidadAsociada: values.tieneEntidadAsociada,
+      tieneEntidadAsociada: values.tipoParticipacion === 'ASOCIADO',
       incluyeInfraestructura: values.incluyeInfraestructura,
       incluyeIDiTT: values.incluyeIDiTT,
       objetivo: values.objetivo,
-      resumen: values.resumen,
+      resumen: '',
+      duracion: values.duracion,
+      coordinadorGeneralNombre: values.coordinadorGeneralNombre,
+      coordinadorGeneralEntidad: values.coordinadorGeneralEntidad,
+      coordinadorUniNombre: values.coordinadorUniNombre,
+      confirmaVersionFinal: values.confirmaVersionFinal,
       cronograma: [],
-      financiamiento: {
-        montoSolicitado: values.montoSolicitado,
-        cofinanciamiento: values.cofinanciamiento,
-        total,
-      },
-      entidadAsociada: values.tieneEntidadAsociada
-        ? {
-            razonSocial: values.entidadRazonSocial ?? '',
-            ruc: values.entidadRuc ?? '',
-            representante: values.entidadRepresentante ?? '',
-            correo: values.entidadCorreo ?? '',
-          }
-        : undefined,
+      financiamiento: { montoSolicitado: 0, cofinanciamiento: 0, total: 0 },
+      entidadAsociada:
+        values.tipoParticipacion === 'ASOCIADO'
+          ? { razonSocial: values.entidadAcompananteNombre ?? '', ruc: '', representante: '', correo: '' }
+          : undefined,
       adjuntos: currentDocs,
       contratoFirmado: false,
       convenioFormalizado: false,
@@ -225,6 +291,30 @@ export function RegistrarFichaPage() {
 
   return (
     <div className="space-y-5">
+      <Card>
+            <CardHeader>
+              <CardTitle>Concurso seleccionado</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div>
+                  <Label>Fondo concursable</Label>
+                  <Input value={concursoSeleccionado?.fondo ?? ''} readOnly />
+                </div>
+                <div>
+                  <Label>Concurso</Label>
+                  <Input value={concursoSeleccionado?.concurso ?? ''} readOnly />
+                </div>
+                <div>
+                  <Label>Fecha límite</Label>
+                  <Input value={concursoSeleccionado?.fechaLimiteIso ?? ''} readOnly />
+                </div>
+              </div>
+              <div className="mt-3 text-xs text-black/55">
+                Estos campos se completan automáticamente según el concurso elegido y no son editables.
+              </div>
+            </CardContent>
+          </Card>
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-xs text-black/50">Postulaciones</div>
@@ -234,9 +324,14 @@ export function RegistrarFichaPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant={canSubmit ? 'success' : 'warning'}>
-            {canSubmit ? 'Lista para enviar' : 'Requiere validación'}
+          <Badge variant={withinDeadline ? 'info' : 'warning'}>
+            {businessDaysToClose === null
+              ? 'Plazo: sin validar'
+              : withinDeadline
+                ? `Plazo OK (${businessDaysToClose} días hábiles)`
+                : `Fuera de plazo (${businessDaysToClose} días hábiles)`}
           </Badge>
+          <Badge variant={canSubmit ? 'success' : 'warning'}>{canSubmit ? 'Lista para enviar' : 'Requiere validación'}</Badge>
         </div>
       </div>
 
@@ -244,12 +339,12 @@ export function RegistrarFichaPage() {
         <div className="space-y-5">
           <Card>
             <CardHeader>
-              <CardTitle>Datos generales del proyecto</CardTitle>
+              <CardTitle>Datos del proyecto</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="md:col-span-2">
-                  <Label>Nombre del proyecto *</Label>
+                  <Label>Título del proyecto *</Label>
                   <Input {...form.register('proyectoNombre')} placeholder="Ej. Centro de datos verde" />
                   <FieldError message={form.formState.errors.proyectoNombre?.message} />
                 </div>
@@ -268,9 +363,19 @@ export function RegistrarFichaPage() {
                 <div>
                   <Label>Tipo de participación *</Label>
                   <Select {...form.register('tipoParticipacion')}>
-                    <option value="INDIVIDUAL">Individual</option>
-                    <option value="ASOCIADO">Asociado</option>
+                    <option value="INDIVIDUAL">Entidad solicitante</option>
+                    <option value="ASOCIADO">Entidad asociada</option>
                   </Select>
+                </div>
+                <div>
+                  <Label>Duración del proyecto *</Label>
+                  <Input {...form.register('duracion')} placeholder="Ej. 12 meses" />
+                  <FieldError message={form.formState.errors.duracion?.message} />
+                </div>
+                <div>
+                  <Label>Fecha de cierre del concurso *</Label>
+                  <Input type="date" {...form.register('fechaCierreConcursoIso')} readOnly />
+                  <FieldError message={form.formState.errors.fechaCierreConcursoIso?.message} />
                 </div>
                 <div className="md:col-span-2">
                   <Label>Objetivo *</Label>
@@ -278,17 +383,23 @@ export function RegistrarFichaPage() {
                   <FieldError message={form.formState.errors.objetivo?.message} />
                 </div>
                 <div className="md:col-span-2">
-                  <Label>Resumen *</Label>
-                  <Textarea {...form.register('resumen')} placeholder="Resumen ejecutivo..." />
-                  <FieldError message={form.formState.errors.resumen?.message} />
+                  <Label>Coordinador general (nombre completo) *</Label>
+                  <Input {...form.register('coordinadorGeneralNombre')} placeholder="Nombres y apellidos" />
+                  <FieldError message={form.formState.errors.coordinadorGeneralNombre?.message} />
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Coordinador general (entidad) *</Label>
+                  <Input {...form.register('coordinadorGeneralEntidad')} placeholder="Entidad a la que pertenece" />
+                  <FieldError message={form.formState.errors.coordinadorGeneralEntidad?.message} />
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Coordinador por parte de la uni (nombre completo) *</Label>
+                  <Input {...form.register('coordinadorUniNombre')} placeholder="Nombres y apellidos" />
+                  <FieldError message={form.formState.errors.coordinadorUniNombre?.message} />
                 </div>
               </div>
 
               <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-                <label className="flex items-center gap-2 rounded-xl border border-black/10 bg-white/50 px-3 py-2 text-sm">
-                  <input type="checkbox" {...form.register('tieneEntidadAsociada')} />
-                  Tiene entidad asociada
-                </label>
                 <label className="flex items-center gap-2 rounded-xl border border-black/10 bg-white/50 px-3 py-2 text-sm">
                   <input type="checkbox" {...form.register('incluyeInfraestructura')} />
                   Infraestructura / equipamiento
@@ -298,82 +409,29 @@ export function RegistrarFichaPage() {
                   I+D+i+TT
                 </label>
               </div>
+              <label className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm mt-4">
+                <input type="checkbox" {...form.register('confirmaVersionFinal')} />
+                Cuento con la versión final de la ficha
+              </label>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Fondo concursable y concurso</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <Label>Fondo concursable *</Label>
-                  <Input {...form.register('fondo')} placeholder="Ej. Fondo Concursable 2026" />
-                  <FieldError message={form.formState.errors.fondo?.message} />
-                </div>
-                <div>
-                  <Label>Concurso *</Label>
-                  <Input {...form.register('concurso')} placeholder="Ej. Concurso I+D 2026" />
-                  <FieldError message={form.formState.errors.concurso?.message} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {w.tieneEntidadAsociada ? (
+          {hasEntidadAsociada ? (
             <Card>
               <CardHeader>
-                <CardTitle>Entidad externa asociada</CardTitle>
+                <CardTitle>Entidad asociada</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="md:col-span-2">
-                    <Label>Razón social *</Label>
-                    <Input {...form.register('entidadRazonSocial')} />
+                    <Label>Nombre de la entidad acompañante *</Label>
+                    <Input {...form.register('entidadAcompananteNombre')} placeholder="Entidad acompañante" />
+                    <FieldError message={form.formState.errors.entidadAcompananteNombre?.message as string | undefined} />
                   </div>
-                  <div>
-                    <Label>RUC *</Label>
-                    <Input {...form.register('entidadRuc')} />
-                  </div>
-                  <div>
-                    <Label>Representante *</Label>
-                    <Input {...form.register('entidadRepresentante')} />
-                  </div>
-                  <div className="md:col-span-2">
-                    <Label>Correo *</Label>
-                    <Input type="email" {...form.register('entidadCorreo')} />
-                    <FieldError message={form.formState.errors.entidadCorreo?.message as string | undefined} />
-                  </div>
-                </div>
-                <div className="mt-3 text-xs text-black/50">
-                  Nota: si el contrato ya fue firmado, este flujo se bloqueará en la pantalla de actualización de asociación.
                 </div>
               </CardContent>
             </Card>
           ) : null}
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Financiamiento</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <div>
-                  <Label>Monto solicitado</Label>
-                  <Input type="number" inputMode="numeric" {...form.register('montoSolicitado')} />
-                </div>
-                <div>
-                  <Label>Cofinanciamiento</Label>
-                  <Input type="number" inputMode="numeric" {...form.register('cofinanciamiento')} />
-                </div>
-                <div>
-                  <Label>Total</Label>
-                  <Input value={total} readOnly />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
           <Card>
             <CardHeader>
@@ -438,7 +496,7 @@ export function RegistrarFichaPage() {
               Guardar borrador
             </Button>
             <Button type="button" disabled={!canSubmit} onClick={send}>
-              Enviar ficha
+              Remitir a Comité de Evaluación
             </Button>
           </div>
         </div>
@@ -475,9 +533,10 @@ export function RegistrarFichaPage() {
             </CardHeader>
             <CardContent>
               <ul className="space-y-2 text-xs text-black/60">
-                <li>- Si hay entidad asociada: se habilita sección y documento de asociación.</li>
+                <li>- Si el tipo de participación es entidad asociada: se habilita nombre de entidad y ficha de asociación.</li>
                 <li>- Si hay infraestructura/equipamiento: se exige informe técnico del Grupo Técnico.</li>
                 <li>- Si hay I+D+i+TT: se exige validación del Grupo de Investigación.</li>
+                <li>- Solo se permite remitir si faltan al menos 6 días hábiles para el cierre del concurso.</li>
               </ul>
             </CardContent>
           </Card>

@@ -1,0 +1,85 @@
+.cd-page .cd-toolbar {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  width: 100%;
+  max-width: 520px;
+}
+
+@media (min-width: 768px) {
+  .cd-page .cd-toolbar {
+    grid-template-columns: 1fr 180px;
+  }
+}
+
+.cd-page .cd-field {
+  display: grid;
+  gap: 6px;
+}
+
+.cd-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+@media (min-width: 1024px) {
+  .cd-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.cd-card {
+  border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.cd-card-title {
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.cd-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 14px;
+  padding: 10px;
+}
+
+.cd-meta-item {
+  display: grid;
+  gap: 2px;
+}
+
+.cd-meta-label {
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.cd-meta-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.8);
+}
+
+.cd-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.cd-page-indicator {
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.65);
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 999px;
+  padding: 8px 12px;
+}
+

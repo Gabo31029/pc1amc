@@ -8,10 +8,12 @@ export type PostulacionEstado =
 export type TipoParticipacion = 'INDIVIDUAL' | 'ASOCIADO'
 
 export type DocumentoTipo =
-  | 'OBLIGATORIO'
+  | 'CARTA_PRESENTACION'
+  | 'CARTA_COMPROMISO_FACULTAD'
+  | 'INFORME_TECNICO_POSTULACION'
   | 'INFORME_TECNICO_GRUPO_TECNICO'
   | 'VALIDACION_GRUPO_INVESTIGACION'
-  | 'DOCUMENTO_ASOCIACION'
+  | 'FICHA_ASOCIACION'
   | 'DOCUMENTO_ADJUDICACION'
   | 'CONVENIO_ASOCIACION'
   | 'DOCUMENTO_LEGAL'
@@ -58,6 +60,7 @@ export type Postulacion = {
   facultad: string
   fondo: string
   concurso: string
+  fechaCierreConcursoIso?: string
   fechaRegistroIso: string
   estado: PostulacionEstado
   tipoParticipacion: TipoParticipacion
@@ -66,10 +69,15 @@ export type Postulacion = {
   tieneEntidadAsociada: boolean
   incluyeInfraestructura: boolean
   incluyeIDiTT: boolean
+  confirmaVersionFinal?: boolean
 
   // Datos
+  duracion?: string
   objetivo: string
   resumen: string
+  coordinadorGeneralNombre?: string
+  coordinadorGeneralEntidad?: string
+  coordinadorUniNombre?: string
   cronograma: CronogramaItem[]
   financiamiento: Financiamiento
 
