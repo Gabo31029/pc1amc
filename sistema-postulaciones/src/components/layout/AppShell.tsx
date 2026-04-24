@@ -1,7 +1,9 @@
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Building2, LayoutList, Rows3, Trophy } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { Breadcrumbs } from './Breadcrumbs'
+import { Button } from '../ui/Button'
+import { useAuth } from '../../app/auth'
 
 function NavItem({
   to,
@@ -29,6 +31,9 @@ function NavItem({
 }
 
 export function AppShell() {
+  const navigate = useNavigate()
+  const { isAuthenticated, session, logout } = useAuth()
+
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-40 border-b border-black/10 bg-white/65 backdrop-blur">
@@ -44,7 +49,28 @@ export function AppShell() {
               <div className="text-xs text-black/50">Módulo de Postulaciones</div>
             </div>
           </Link>
-          <div className="text-xs text-black/50">Sesión: Representante / Comité (demo)</div>
+          <div className="flex items-center gap-3">
+            <div className="text-xs text-black/50">
+              {isAuthenticated ? `Sesión: ${session?.email}` : 'Sesión: no autenticado'}
+            </div>
+            {isAuthenticated ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  logout()
+                  navigate('/login', { replace: true })
+                }}
+              >
+                Cerrar sesión
+              </Button>
+            ) : (
+              <Button type="button" variant="secondary" size="sm" onClick={() => navigate('/login')}>
+                Iniciar sesión
+              </Button>
+            )}
+          </div>
         </div>
       </header>
 

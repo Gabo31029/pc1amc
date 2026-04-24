@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { Input, Label, Select } from '../components/ui/Field'
+import { useToast } from '../components/ui/Toast'
+import { setPendingConcurso, useAuth } from '../app/auth'
 import './ConcursosDisponibles.css'
 
 type ConcursoEstado = 'ACTIVO' | 'PROXIMO' | 'CERRADO'
@@ -159,6 +161,8 @@ const concursosMock: Concurso[] = [
 
 export function ConcursosDisponibles() {
   const navigate = useNavigate()
+  const { toast } = useToast()
+  const { isAuthenticated } = useAuth()
   const [page, setPage] = useState(1)
   const [filtro, setFiltro] = useState<'TODOS' | ConcursoEstado>('TODOS')
   const [q, setQ] = useState('')
@@ -299,16 +303,32 @@ export function ConcursosDisponibles() {
                       type="button"
                       disabled={postularDisabled}
                       onClick={() =>
-                        navigate('/postulacion', {
-                          state: {
-                            concursoSeleccionado: {
-                              id: c.id,
-                              fondo: c.fondo,
-                              concurso: c.concurso,
-                              fechaLimiteIso: c.fechaLimiteIso,
-                            } satisfies ConcursoSeleccionado,
-                          },
-                        })
+                        (() => {
+                          const payload: ConcursoSeleccionado = {
+                            id: c.id,
+                            fondo: c.fondo,
+                            concurso: c.concurso,
+                            fechaLimiteIso: c.fechaLimiteIso,
+                          }
+
+                          // Persistimos intención + concurso para sobrevivir al login
+                          setPendingConcurso(payload)
+
+                          if (!isAuthenticated) {
+                            toast({
+                              title: 'Debe iniciar sesión para postular',
+                              message: 'Inicie sesión para continuar con la postulación.',
+                              variant: 'default',
+                            })
+                            navigate('/login', {
+                              replace: false,
+                              state: { intent: 'postular', concursoSeleccionado: payload },
+                            })
+                            return
+                          }
+
+                          navigate('/postulacion', { state: { concursoSeleccionado: payload } })
+                        })()
                       }
                       title={
                         estado === 'CERRADO'

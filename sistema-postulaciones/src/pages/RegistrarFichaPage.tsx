@@ -9,6 +9,7 @@ import { FieldError, Input, Label, Select, Textarea } from '../components/ui/Fie
 import { Badge } from '../components/ui/Badge'
 import { useToast } from '../components/ui/Toast'
 import { createPostulacion, transitionEstado } from '../app/storage'
+import { clearPendingConcurso, getPendingConcurso } from '../app/auth'
 import { type DocumentoAdjunto, type DocumentoTipo, type Postulacion } from '../app/types'
 import { type ConcursoSeleccionado } from './ConcursosDisponibles'
 
@@ -80,8 +81,9 @@ export function RegistrarFichaPage() {
   const { toast } = useToast()
   const navigate = useNavigate()
   const location = useLocation()
-  const concursoSeleccionado = (location.state as { concursoSeleccionado?: ConcursoSeleccionado } | null)
+  const concursoSeleccionadoFromState = (location.state as { concursoSeleccionado?: ConcursoSeleccionado } | null)
     ?.concursoSeleccionado
+  const concursoSeleccionado = concursoSeleccionadoFromState ?? (getPendingConcurso() as ConcursoSeleccionado | null)
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema) as never,
@@ -104,6 +106,9 @@ export function RegistrarFichaPage() {
       navigate('/concursos', { replace: true })
       return
     }
+
+    // Si venimos desde login (persistencia), limpiamos el pendiente al entrar al formulario.
+    clearPendingConcurso()
 
     form.reset(
       {
