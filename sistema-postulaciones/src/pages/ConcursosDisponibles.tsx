@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { Input, Label, Select } from '../components/ui/Field'
-import { useToast } from '../components/ui/Toast'
 import { setPendingConcurso } from '../app/auth'
 import './ConcursosDisponibles.css'
 
@@ -161,7 +160,6 @@ const concursosMock: Concurso[] = [
 
 export function ConcursosDisponibles() {
   const navigate = useNavigate()
-  const { toast } = useToast()
   const [page, setPage] = useState(1)
   const [filtro, setFiltro] = useState<'TODOS' | ConcursoEstado>('TODOS')
   const [q, setQ] = useState('')
