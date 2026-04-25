@@ -99,7 +99,7 @@ export function ActualizarAsociacionPage() {
   }, [id, refresh, syncFrom])
 
   const perteneceFacultad = useMemo(() => {
-    if (!p || !session) return false
+    if (!p) return false
     return p.facultad === session.facultad
   }, [p, session])
 
@@ -113,7 +113,7 @@ export function ActualizarAsociacionPage() {
   )
 
   function onIntentarActualizar() {
-    if (!p || !session) {
+    if (!p) {
       setFatal('Ficha inexistente o no disponible.')
       return
     }

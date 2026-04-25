@@ -25,13 +25,21 @@ export type LoginResult =
   | { ok: false; needsSecondFactor: true }
 
 type AuthContextValue = {
-  session: AuthSession | null
+  session: AuthSession
   isAuthenticated: boolean
   login: (email: string, password: string, secondFactor?: string) => Promise<LoginResult>
   logout: () => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
+
+/** Sesión por defecto cuando no hay login (demostración). */
+export const DEFAULT_DEMO_SESSION: AuthSession = {
+  email: 'admin@uni.edu',
+  loggedInAtIso: new Date().toISOString(),
+  facultad: 'Ingeniería',
+  puedeEditarFichas: true,
+}
 
 function normalizeSession(raw: unknown): AuthSession | null {
   if (!raw || typeof raw !== 'object') return null
@@ -82,7 +90,7 @@ export function clearPendingConcurso() {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<AuthSession | null>(() => readSession())
+  const [session, setSession] = useState<AuthSession>(() => readSession() ?? DEFAULT_DEMO_SESSION)
 
   useEffect(() => {
     writeSession(session)
@@ -91,7 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<AuthContextValue>(() => {
     return {
       session,
-      isAuthenticated: !!session,
+      isAuthenticated: true,
       login: async (email: string, password: string, secondFactor?: string) => {
         const e = email.toLowerCase().trim()
         const credOk =
@@ -117,7 +125,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         })
         return { ok: true }
       },
-      logout: () => setSession(null),
+      logout: () => {
+        writeSession(null)
+        setSession(DEFAULT_DEMO_SESSION)
+      },
     }
   }, [session])
 

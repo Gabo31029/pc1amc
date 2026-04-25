@@ -12,8 +12,8 @@ export function HomePage() {
   const items = listPostulaciones()
 
   const deLaFacultad = useMemo(
-    () => items.filter((p) => p.facultad === session?.facultad).sort((a, b) => b.fechaRegistroIso.localeCompare(a.fechaRegistroIso)),
-    [items, session?.facultad],
+    () => items.filter((p) => p.facultad === session.facultad).sort((a, b) => b.fechaRegistroIso.localeCompare(a.fechaRegistroIso)),
+    [items, session.facultad],
   )
 
   const pageSize = 10
@@ -22,7 +22,7 @@ export function HomePage() {
   const currentPage = Math.min(page, totalPages)
   const rows = deLaFacultad.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
-  if (!session?.puedeEditarFichas) {
+  if (!session.puedeEditarFichas) {
     return (
       <div className="space-y-5">
         <h1 className="text-2xl font-semibold tracking-[-0.03em]">Acceso a fichas</h1>

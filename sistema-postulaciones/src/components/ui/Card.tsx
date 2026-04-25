@@ -2,14 +2,20 @@ import { cn } from '../../lib/cn'
 
 export function Card({
   className,
+  style,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={cn(
-        'rounded-2xl border border-black/10 bg-white/60 shadow-sm backdrop-blur',
+        'rounded-[10px] border bg-[color:var(--inst-card-bg,#ffffff)]',
         className,
       )}
+      style={{
+        borderColor: 'var(--inst-card-border)',
+        boxShadow: 'var(--inst-card-shadow)',
+        ...style,
+      }}
       {...props}
     />
   )

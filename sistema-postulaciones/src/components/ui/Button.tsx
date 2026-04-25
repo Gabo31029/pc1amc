@@ -21,7 +21,7 @@ export function Button({
         'cursor-pointer disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
         size === 'md' ? 'h-10 px-4' : 'h-9 px-3',
         variant === 'primary' &&
-          'border-black/10 bg-black text-white shadow-sm hover:bg-black/90 hover:shadow-md',
+          'border-transparent bg-[color:var(--inst-primary)] text-white shadow-sm hover:bg-[color:var(--inst-primary-hover)] hover:shadow-md',
         variant === 'secondary' &&
           'border-black/10 bg-white/60 text-black shadow-sm backdrop-blur hover:bg-white/80 hover:shadow-md',
         variant === 'ghost' && 'border-transparent bg-transparent text-black hover:bg-black/5',

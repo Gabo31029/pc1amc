@@ -3,13 +3,11 @@ import { AppShell } from './components/layout/AppShell'
 import { HomePage } from './pages/HomePage'
 import { ActualizarAdjudicacionPage } from './pages/ActualizarAdjudicacionPage'
 import { ActualizarAsociacionPage } from './pages/ActualizarAsociacionPage'
-import { LoginPage } from './pages/LoginPage'
 import { RequireAuth } from './components/auth/RequireAuth'
 
 export default function App() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
       <Route element={<AppShell />}>
         <Route
           path="/"
